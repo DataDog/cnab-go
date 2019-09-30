@@ -11,33 +11,28 @@
   version = "2.2.1"
 
 [[constraint]]
-  # version imported by k8s.io/client-go @ kubernetes-1.11.2
   name = "github.com/Azure/go-autorest"
-  revision = "1ff28809256a84bb6966640ff3d0371af82ccba4"
+  revision = "69b4126ece6b5257e2f9b0017007d2334153655f"
 
 [[constraint]]
   name = "github.com/docker/cli"
-  revision = "f95ca8e1ba6c22c9abcdbf65e8dcc39c53958bba"
-
-[[override]]
-  name = "github.com/docker/docker"
-  revision = "f76d6a078d881f410c00e8d900dcdfc2e026c841"
+  revision = "v18.09.9"
 
 [[override]]
   name = "github.com/docker/distribution"
-  revision = "83389a148052d74ac602f5f1d62f86ff2f3c4aa5"
+  revision = "v2.7.1"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.11.2"
+  revision = "27d36303b655"
 
 [[override]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.11.2"
+  revision = "95b840bb6a1f"
 
 [[override]]
   name = "k8s.io/client-go"
-  revision = "kubernetes-1.11.2"
+  revision = "1fbdaa4c8d90"
 
 [[override]]
   name = "k8s.io/kubernetes"

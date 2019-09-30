@@ -111,12 +111,10 @@ func (d *Driver) initializeDockerCli() (command.Cli, error) {
 	if d.dockerCli != nil {
 		return d.dockerCli, nil
 	}
-	cli, err := command.NewDockerCli()
-	if err != nil {
-		return nil, err
-	}
+	cli := command.NewDockerCli(nil, d.containerOut, nil, false, nil)
 	if d.config["DOCKER_DRIVER_QUIET"] == "1" {
-		cli.Apply(command.WithCombinedStreams(ioutil.Discard))
+		// cli.Client().ContainerStart()
+		// cli.Apply(command.WithCombinedStreams(ioutil.Discard))
 	}
 	if err := cli.Initialize(cliflags.NewClientOptions()); err != nil {
 		return nil, err

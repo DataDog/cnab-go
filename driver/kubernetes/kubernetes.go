@@ -13,6 +13,8 @@ import (
 	_ "github.com/Azure/go-autorest/autorest"
 
 	"github.com/deislabs/cnab-go/driver"
+	"github.com/flant/kubedog/pkg/kube"
+	"github.com/flant/kubedog/pkg/trackers/rollout/multitrack"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -233,43 +235,34 @@ func (k *Driver) Run(op *driver.Operation) (driver.OperationResult, error) {
 		LabelSelector: labels.Set(job.ObjectMeta.Labels).String(),
 	}
 
-	return driver.OperationResult{}, k.watchJobStatusAndLogs(selector, op.Out)
+	return driver.OperationResult{}, k.watchJobStatusAndLogs(job.ObjectMeta.Name, selector, op.Out)
 }
 
-func (k *Driver) watchJobStatusAndLogs(selector metav1.ListOptions, out io.Writer) error {
+func (k *Driver) watchJobStatusAndLogs(jobName string, selector metav1.ListOptions, out io.Writer) error {
 	// Stream Pod logs in the background
 	logsStreamingComplete := make(chan bool)
 	err := k.streamPodLogs(selector, out, logsStreamingComplete)
 	if err != nil {
 		return err
 	}
-	// Watch job events and exit on failure/success
-	watch, err := k.jobs.Watch(selector)
+
+	// Watch jobs
+	_ = kube.Init(kube.InitOptions{})
+	err = multitrack.Multitrack(
+		kube.Kubernetes,
+		multitrack.MultitrackSpecs{
+			Jobs: []multitrack.MultitrackSpec{
+				multitrack.MultitrackSpec{
+					ResourceName:        jobName,
+					Namespace:           k.Namespace,
+					ShowServiceMessages: true},
+			},
+		},
+		multitrack.MultitrackOptions{},
+	)
+
 	if err != nil {
-		return err
-	}
-	for event := range watch.ResultChan() {
-		job, ok := event.Object.(*batchv1.Job)
-		if !ok {
-			return fmt.Errorf("unexpected type")
-		}
-		complete := false
-		for _, cond := range job.Status.Conditions {
-			if cond.Type == batchv1.JobFailed {
-				err = fmt.Errorf(cond.Message)
-				complete = true
-				break
-			}
-			if cond.Type == batchv1.JobComplete {
-				complete = true
-				break
-			}
-		}
-		if complete {
-			break
-		}
-	}
-	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: resources have not reached ready state: %s", err)
 		return err
 	}
 

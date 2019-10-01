@@ -315,6 +315,9 @@ func (k *Driver) streamPodLogs(options metav1.ListOptions, out io.Writer, done c
 			// Block the loop until all logs from the pod have been processed.
 			n, err := io.Copy(out, reader)
 			reader.Close()
+			if err != nil {
+				continue
+			}
 			if n == 0 {
 				streamedLogs[podName] = false
 				continue

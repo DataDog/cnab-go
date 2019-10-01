@@ -3,8 +3,10 @@ package kubernetes
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	// load credential helpers
@@ -231,7 +233,6 @@ func (k *Driver) Run(op *driver.Operation) (driver.OperationResult, error) {
 	if k.skipJobStatusCheck {
 		return driver.OperationResult{}, nil
 	}
-
 	selector := metav1.ListOptions{
 		LabelSelector: labels.Set(job.ObjectMeta.Labels).String(),
 	}
@@ -280,7 +281,6 @@ func (k *Driver) streamPodLogs(options metav1.ListOptions, out io.Writer, done c
 	if err != nil {
 		return err
 	}
-
 	go func() {
 		// Track pods whose logs have been streamed by pod name. We need to know when we've already
 		// processed logs for a given pod, since multiple lifecycle events are received per pod.
@@ -290,15 +290,18 @@ func (k *Driver) streamPodLogs(options metav1.ListOptions, out io.Writer, done c
 			if !ok {
 				continue
 			}
+
 			podName := pod.GetName()
 			if streamedLogs[podName] {
 				// The event was for a pod whose logs have already been streamed, so do nothing.
 				continue
 			}
+
 			req := k.pods.GetLogs(podName, &v1.PodLogOptions{
 				Container: k8sContainerName,
 				Follow:    true,
 			})
+
 			reader, err := req.Stream()
 			// There was an error connecting to the pod, so continue the loop and attempt streaming
 			// logs again next time there is an event for the same pod.
@@ -308,9 +311,14 @@ func (k *Driver) streamPodLogs(options metav1.ListOptions, out io.Writer, done c
 
 			// We successfully connected to the pod, so mark it as having streamed logs.
 			streamedLogs[podName] = true
+
 			// Block the loop until all logs from the pod have been processed.
-			io.Copy(out, reader)
+			n, err := io.Copy(out, reader)
 			reader.Close()
+			if n == 0 {
+				streamedLogs[podName] = false
+				continue
+			}
 			done <- true
 		}
 	}()
@@ -339,6 +347,7 @@ func generateLabels(op *driver.Operation) map[string]string {
 		"cnab.io/installation": op.Installation,
 		"cnab.io/action":       op.Action,
 		"cnab.io/revision":     op.Revision,
+		"random_string":        strconv.Itoa(rand.Intn(100)),
 	}
 }
 
